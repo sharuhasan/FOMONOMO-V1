@@ -1,0 +1,22 @@
+{
+  "name": "spontaneous-social-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spontaneous Social — mobile-first social activity discovery platform",
+  "scripts": {
+    "dev:api": "turbo run dev --filter=@spontaneous-social/api",
+    "dev:mobile": "turbo run dev --filter=@spontaneous-social/mobile",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

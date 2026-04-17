@@ -1,0 +1,375 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, pgcrypto]
+}
+
+// ──────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────
+
+enum AppRole {
+  admin
+  moderator
+  user
+  sponsor
+}
+
+enum Gender {
+  male
+  female
+  non_binary      @map("non-binary")
+  prefer_not_to_say @map("prefer-not-to-say")
+}
+
+enum GenderFilter {
+  any
+  women_only @map("women-only")
+  men_only   @map("men-only")
+}
+
+enum ActivityCategory {
+  Sports
+  Food
+  Study
+  Music
+  Art
+  Social
+  Fitness
+  Gaming
+}
+
+enum NotificationType {
+  join
+  chat
+  nearby
+  reminder
+}
+
+enum ReportStatus {
+  pending
+  reviewed
+  dismissed
+}
+
+enum CampaignStatus {
+  pending
+  active
+  rejected
+  expired
+  completed
+}
+
+enum CampaignType {
+  boost
+  sponsored
+  banner
+}
+
+enum AnnouncementType {
+  info
+  warning
+  update
+}
+
+enum ParticipantStatus {
+  pending
+  approved
+  rejected
+}
+
+enum FriendshipStatus {
+  pending
+  accepted
+  rejected
+}
+
+// ──────────────────────────────────────────
+// Models
+// ──────────────────────────────────────────
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  fullName      String?  @map("full_name")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  profile          Profile?
+  roles            UserRole[]
+  hostedActivities Activity[]
+  participations   ActivityParticipant[]
+  activityMessages ActivityMessage[]
+  sentDMs          DirectMessage[]    @relation("SentDMs")
+  receivedDMs      DirectMessage[]    @relation("ReceivedDMs")
+  givenReviews     Review[]           @relation("ReviewerReviews")
+  receivedReviews  Review[]           @relation("RevieweeReviews")
+  notifications    Notification[]
+  reports          Report[]           @relation("ReporterReports")
+  reportsAgainst   Report[]           @relation("ReportedUserReports")
+  sponsorCampaigns SponsorCampaign[]
+  announcements    Announcement[]
+  refreshTokens    RefreshToken[]
+  blockedUsers     UserBlock[]     @relation("BlockerBlocks")
+  blockedByUsers   UserBlock[]     @relation("BlockedBlocks")
+  sentFriendRequests     Friendship[] @relation("FriendRequester")
+  receivedFriendRequests Friendship[] @relation("FriendAddressee")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revoked   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Profile {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String   @unique @map("user_id") @db.Uuid
+  displayName      String   @default("") @map("display_name")
+  avatarUrl        String?  @map("avatar_url")
+  bio              String?  @default("")
+  age              Int?
+  gender           Gender?
+  interests        String[] @default([])
+  societies        String[] @default([])
+  profilePrimary   String?  @map("profile_primary")
+  profileSecondary String?  @map("profile_secondary")
+  profileAccent    String?  @map("profile_accent")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model UserRole {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      AppRole
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model Activity {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hostId             String           @map("host_id") @db.Uuid
+  title              String
+  description        String?          @default("")
+  category           ActivityCategory
+  societyTag         String?          @map("society_tag")
+  apartmentCommunity String?          @map("apartment_community")
+  location           String
+  lat                Float            @default(0)
+  lng                Float            @default(0)
+  scheduledTime      DateTime         @map("scheduled_time")
+  maxParticipants    Int              @default(10) @map("max_participants")
+  durationMinutes    Int?             @map("duration_minutes")
+  imageUrl           String?          @map("image_url")
+  isActive           Boolean          @default(true) @map("is_active")
+  genderFilter       GenderFilter?    @map("gender_filter")
+  minAge             Int?             @map("min_age")
+  maxAge             Int?             @map("max_age")
+  isSponsored        Boolean          @default(false) @map("is_sponsored")
+  sponsorName        String?          @map("sponsor_name")
+  sponsorLogo        String?          @map("sponsor_logo")
+  sponsorLink        String?          @map("sponsor_link")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  host          User                  @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  participants  ActivityParticipant[]
+  messages      ActivityMessage[]
+  notifications Notification[]
+  reports       Report[]
+  campaigns     SponsorCampaign[]
+
+  @@index([hostId])
+  @@index([category])
+  @@index([scheduledTime])
+  @@index([isActive])
+  @@map("activities")
+}
+
+model ActivityParticipant {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId String            @map("activity_id") @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  status     ParticipantStatus @default(pending)
+  joinedAt   DateTime          @default(now()) @map("joined_at")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+  @@map("activity_participants")
+}
+
+model ActivityMessage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([activityId, createdAt])
+  @@map("activity_messages")
+}
+
+model DirectMessage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId   String   @map("sender_id") @db.Uuid
+  receiverId String   @map("receiver_id") @db.Uuid
+  content    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("SentDMs", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedDMs", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, read])
+  @@map("direct_messages")
+}
+
+model Review {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewerId String   @map("reviewer_id") @db.Uuid
+  revieweeId String   @map("reviewee_id") @db.Uuid
+  rating     Int
+  text       String?  @default("")
+  tags       String[] @default([])
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  reviewer User @relation("ReviewerReviews", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("RevieweeReviews", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewerId, revieweeId])
+  @@map("reviews")
+}
+
+model Notification {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  type       NotificationType
+  message    String
+  activityId String?          @map("activity_id") @db.Uuid
+  metadata   Json?            @default("{}")
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model Report {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporterId         String       @map("reporter_id") @db.Uuid
+  reportedUserId     String?      @map("reported_user_id") @db.Uuid
+  reportedActivityId String?      @map("reported_activity_id") @db.Uuid
+  reason             String
+  status             ReportStatus @default(pending)
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  reporter         User      @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser     User?     @relation("ReportedUserReports", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  reportedActivity Activity? @relation(fields: [reportedActivityId], references: [id], onDelete: SetNull)
+
+  @@map("reports")
+}
+
+model SponsorCampaign {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sponsorId        String         @map("sponsor_id") @db.Uuid
+  activityId       String?        @map("activity_id") @db.Uuid
+  campaignType     CampaignType   @default(boost) @map("campaign_type")
+  budget           Decimal        @default(0) @db.Decimal(10, 2)
+  durationDays     Int            @default(3) @map("duration_days")
+  targetCategories String[]       @default([]) @map("target_categories")
+  targetRadiusKm   Int?           @default(5) @map("target_radius_km")
+  impressions      Int            @default(0)
+  clicks           Int            @default(0)
+  joins            Int            @default(0)
+  status           CampaignStatus @default(pending)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  expiresAt        DateTime?      @map("expires_at")
+
+  sponsor  User      @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([sponsorId])
+  @@index([status])
+  @@map("sponsor_campaigns")
+}
+
+model Announcement {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId   String           @map("admin_id") @db.Uuid
+  title     String
+  message   String
+  type      AnnouncementType @default(info)
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("announcements")
+}
+
+model UserBlock {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  blocker User @relation("BlockerBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockedBlocks", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@map("user_blocks")
+}
+
+model Friendship {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId String           @map("requester_id") @db.Uuid
+  addresseeId String           @map("addressee_id") @db.Uuid
+  status      FriendshipStatus @default(pending)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@map("friendships")
+}

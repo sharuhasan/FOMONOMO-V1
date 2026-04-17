@@ -134,11 +134,21 @@ From the project root:
 pnpm dev:mobile
 ```
 
-This runs `expo start`. You can then:
+This runs `expo start` and displays a **QR code** in your terminal.
+
+#### Open on a simulator / emulator
 
 - **Press `i`** to open in an iOS Simulator
 - **Press `a`** to open in an Android Emulator
-- **Scan the QR code** with Expo Go on your physical device
+
+#### Open on a physical device (QR code)
+
+1. Make sure your phone and computer are on the **same Wi-Fi network**.
+2. Install **Expo Go** on your phone ([App Store](https://apps.apple.com/app/expo-go/id982107779) / [Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)).
+3. Scan the QR code shown in the terminal:
+   - **iPhone** — Open the default **Camera** app, point it at the QR code, and tap the banner that appears to open in Expo Go.
+   - **Android** — Open the **Expo Go** app and tap **"Scan QR code"**.
+4. The app will build and load on your phone. Hot-reload is enabled — any code change will update automatically.
 
 ## Project structure
 
